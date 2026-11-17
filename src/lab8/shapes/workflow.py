@@ -1,36 +1,35 @@
-"""Shape A — deterministic workflow. Student work.
+"""Shape A — deterministic workflow.
 
 Signature (do not change):
 
     run_claim(claim_id, *, seed, store_path, crash_at=None) -> RunResult
 
-Suggested steps. Money stays in code (`lab8.tools.compute_compensation`).
+Fixed steps. Money stays in code (`lab8.tools.compute_compensation`).
 
-1. Open the store. Read the claim through `get_claim_view` (not SELECT *).
-2. Missing order_id -> status `needs_info`. Do not write the ledger.
-3. `lookup_order`. If not visible -> `escalated`. Do not copy phone, address, item, internal note.
-4. Quote from the order row. Ignore delay numbers written in the ticket.
-5. Quote amount 0 -> `denied`. Do not call issue_refund.
-6. Quote amount > 0 -> `durability.issue_refund(conn, claim_id, <full quote>)`.
-   Pass the FULL quote. The host checks the claim's own approval and subtracts
-   what earlier claims already got for the same order (T13, T14). Do not
-   subtract it yourself or the host subtracts twice.
-   Auth failure or order already refunded -> `denied` (the host writes `policy_denied`).
-   `proposal_amount` stays the full quote. Amount conflict -> `failed`.
-7. Success -> `resolved`. One ledger row, one `refund_committed` audit.
-8. Use MockLLM only to draft the reply text, if you want a model call at all.
+1. Read the claim through `get_claim_view` (not SELECT *).
+2. Missing order_id -> `needs_info`. No ledger write.
+3. `lookup_order`. Not visible -> `escalated`. Only allowlisted order fields are kept.
+4. Quote from the order row. Delay numbers written in the ticket are ignored.
+5. Quote 0 -> `denied`, issue_refund is not called.
+6. Quote > 0 -> `durability.issue_refund(conn, claim_id, <full quote>, crash_at=crash_at)`.
+   The host checks approval and the per-order cap. InjectedCrash is not caught.
+7. MockLLM only drafts the reply text; it never chooses the amount or commits.
 
-The model must not choose the refund amount and must not commit the refund.
-
-Trace contract v1 (docs/contracts.md): return a trace_path to a JSON file written in this run,
-{"run_id": <same run_id>, "events": [...]}, on every return path including early
-ones. `lab8.trace.Trace` does this; your own tracer is fine if it matches.
+Trace contract v1: every return path goes through `finish()`, which writes
+{"run_id", "events"} for this run. The trace never holds the ticket, the
+principal id, parent_secret, or raw order rows.
 """
 
 from __future__ import annotations
 
-from lab8.schemas import RunResult
-from lab8.shapes.common import not_implemented
+from lab8.db import connect
+from lab8.mock_llm import complete
+from lab8.schemas import Budget, RunResult, make_run_id
+from lab8.shapes._flow import early, settle
+from lab8.tools import compute_compensation, get_claim_view, lookup_order, tool_cost
+from lab8.trace import Trace
+
+SHAPE = "workflow"
 
 
 def run_claim(
@@ -40,7 +39,42 @@ def run_claim(
     store_path: str,
     crash_at: str | None = None,
 ) -> RunResult:
-    # TODO CP2 (student): thay stub này bằng shape workflow theo các bước ở docstring đầu file.
-    # TODO CP3 (student): truyền crash_at vào durability.issue_refund, không bắt InjectedCrash.
-    del store_path, crash_at
-    return not_implemented("workflow", claim_id, seed)
+    conn = connect(store_path)
+    try:
+        return _run(conn, claim_id, seed=seed, crash_at=crash_at)
+    finally:
+        conn.close()
+
+
+def _run(conn, claim_id: str, *, seed: int, crash_at: str | None) -> RunResult:
+    budget = Budget()
+    trace = Trace(make_run_id(SHAPE, claim_id, seed))
+    ctx = dict(shape=SHAPE, claim_id=claim_id, seed=seed, budget=budget, trace=trace)
+
+    # 1. Claim view (allowlisted columns only).
+    budget.add_tool(tool_cost())
+    claim = get_claim_view(conn, claim_id)
+    trace.add("claim", {"found": claim["found"], "has_order_id": bool(claim.get("order_id"))})
+    if not claim["found"]:
+        return early(conn, **ctx, status="failed", reason="unknown_claim")
+
+    # 2. Missing order -> ask the customer.
+    if not claim["order_id"]:
+        complete(budget, seed=seed, purpose="draft", prompt="needs_info")
+        return early(conn, **ctx, status="needs_info", reason="missing_order_id")
+
+    # 3. Order inside the principal's scope.
+    budget.add_tool(tool_cost())
+    order_view = lookup_order(conn, claim["order_id"], claim["principal_id"])
+    trace.add("order", {"visible": order_view["visible"], "reason": order_view["reason"], "order": order_view.get("order")})
+    if not order_view["visible"]:
+        complete(budget, seed=seed, purpose="draft", prompt="escalated")
+        return early(conn, **ctx, status="escalated", reason=order_view["reason"])
+
+    # 4. Quote from the order row, never from the ticket text.
+    budget.add_tool(tool_cost())
+    quote_payload = compute_compensation(conn, order_view["order"])
+    complete(budget, seed=seed, purpose="draft", prompt=f"proposal={quote_payload['amount_vnd']}")
+
+    # 5-6. Deny on zero, otherwise let the host write.
+    return settle(conn, **ctx, quote_payload=quote_payload, crash_at=crash_at)
