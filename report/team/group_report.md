@@ -10,11 +10,11 @@ Tối đa 5 trang ngoài phụ lục. Số liệu lấy từ file trong `src/rep
 
 ## 2. Mục tiêu và cách tiếp cận
 
-Bài toán: xử lý claim hoàn phí của LogiX-VN bằng bốn kiến trúc, rồi chọn kiến trúc ít tự chủ nhất mà vẫn đạt. Ranh giới chính: số tiền, approval và chống ghi trùng do code (`compute_compensation`, `durability.issue_refund`) quyết; model chỉ soạn chữ. Nhóm chỉ có một thành viên nên làm tuần tự: cài môi trường và đọc contract, viết helper chung `_flow.py`, rồi workflow → single → orchestrator, sau đó thêm test, chạy crash suite, benchmark và viết báo cáo. Swarm có sẵn dùng để đối chứng.
+Bài toán: xử lý claim hoàn phí của LogiX-VN bằng bốn kiến trúc, rồi chọn kiến trúc ít tự chủ nhất mà vẫn đạt. Ranh giới chính: số tiền, approval và chống ghi trùng do code (`compute_compensation`, `durability.issue_refund`) quyết; model chỉ soạn chữ. Nhóm chỉ có một thành viên nên làm tuần tự: cài môi trường và đọc contract, viết helper chung `early()` / `settle()` (đặt trong `workflow.py`), rồi workflow → single → orchestrator, sau đó thêm test, chạy crash suite, benchmark và viết báo cáo. Swarm có sẵn dùng để đối chứng.
 
 ## 3. Giải pháp
 
-Phần dùng chung: `src/lab8/shapes/_flow.py` có `early()` (needs_info, escalated, failed; không ghi ledger) và `settle()` (quote = 0 → `denied`; quote > 0 → `issue_refund` với quote đầy đủ, map kết quả host sang `resolved` / `denied` / `failed`). `InjectedCrash` được ghi trace rồi ném lại, không bắt.
+Phần dùng chung: `src/lab8/shapes/workflow.py` có `early()` (needs_info, escalated, failed; không ghi ledger) và `settle()` (quote = 0 → `denied`; quote > 0 → `issue_refund` với quote đầy đủ, map kết quả host sang `resolved` / `denied` / `failed`). `InjectedCrash` được ghi trace rồi ném lại, không bắt.
 
 - **workflow:** các bước cố định: `get_claim_view` → `lookup_order` → `compute_compensation` từ order row (bỏ qua số ngày trễ trong ticket) → `settle`. MockLLM chỉ soạn câu trả lời.
 - **single:** `run_react` tối đa 8 bước; `decide` chỉ chọn tool đọc (get_claim_view, lookup_order, compute_compensation). Sau vòng lặp code của shape gọi `issue_refund`. Trace ghi tên tool và status từng bước, không ghi observation thô.

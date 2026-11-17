@@ -42,12 +42,12 @@ Sao chép mục dưới đây cho từng thành viên.
 
 ### Phần việc phụ trách
 
-- Toàn bộ đồ án (nhóm 1 người): triển khai 3 shape (workflow, single, orchestrator), module dùng chung `_flow.py`, kiểm thử đơn vị & hệ thống, crash safety test, benchmark và báo cáo kỹ thuật.
+- Toàn bộ đồ án (nhóm 1 người): triển khai 3 shape (workflow, single, orchestrator), helper dùng chung `early()` / `settle()` (trong `workflow.py`), kiểm thử đơn vị & hệ thống, crash safety test, benchmark và báo cáo kỹ thuật.
 
 ### Đóng góp cụ thể
 
 - Cài đặt đầy đủ 3 kiến trúc theo đúng contracts và business rules.
-- Tách `_flow.py` tối ưu xử lý quote, idempotency và trace.
+- Tách `early()` / `settle()` (trong `workflow.py`) tối ưu xử lý quote, idempotency và trace.
 - Viết bộ kiểm thử mở rộng `src/tests/test_team_shapes.py` gồm 24 test kiểm tra ranh giới bảo mật, step cap, và handling bất thường.
 - Thực hiện đo benchmark 4 shape trên 5 seed và kiểm thử độ bền bỉ crash 20/20.
 

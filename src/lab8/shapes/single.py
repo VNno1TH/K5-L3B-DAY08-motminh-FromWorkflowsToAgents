@@ -20,7 +20,7 @@ from lab8.db import connect
 from lab8.mock_llm import complete
 from lab8.runtime import run_react
 from lab8.schemas import Budget, RunResult, make_run_id
-from lab8.shapes._flow import early, settle
+from lab8.shapes.workflow import early, settle
 from lab8.trace import Trace
 
 SHAPE = "single"

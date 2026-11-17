@@ -19,7 +19,7 @@ from lab8.handoff import make_handoff
 from lab8.mock_llm import complete
 from lab8.runtime import run_readonly_investigators
 from lab8.schemas import Budget, RunResult, make_run_id
-from lab8.shapes._flow import early, settle
+from lab8.shapes.workflow import early, settle
 from lab8.shapes.common import safe_dump
 from lab8.tools import get_claim_view, tool_cost
 from lab8.trace import Trace
