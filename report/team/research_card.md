@@ -18,8 +18,8 @@ Phần này nối tiếp phần mini research ở buổi lý thuyết (slide 62�
 | Field | Hướng dẫn | Nhóm điền |
 | --- | --- | --- |
 | CÂU | R1 / R2 / R3 / R4 | R4 |
-| SOURCE | Paper/blog, năm, URL, loại bằng chứng (benchmark, production report, blog kinh nghiệm) | EMNLP 2024, *Rethinking the Evaluation of Efficiency Methods for Multi-Agent Systems*, https://aclanthology.org/2024.emnlp-main.488/. Loại bằng chứng: paper benchmark |
-| CLAIM | Một kết luận gốc của nguồn. Không viết rộng hơn phạm vi paper | So sánh hiệu quả giữa các hệ multi-agent dễ bị nhiễu bởi prompt, tool và seed; muốn kết luận về topology phải cố định các biến này để tránh thiên lệch setup-dependent. |
+| SOURCE | Paper/blog, năm, URL, loại bằng chứng (benchmark, production report, blog kinh nghiệm) | EMNLP 2026, *Rethinking Evaluation of MAS Efficiency* (theo thư viện tham khảo của lớp, slide 68–69). Tôi chưa có URL gốc và chưa đọc bản đầy đủ. Loại bằng chứng: paper benchmark |
+| CLAIM | Một kết luận gốc của nguồn. Không viết rộng hơn phạm vi paper | So sánh hiệu quả giữa các hệ multi-agent dễ bị nhiễu bởi prompt, tool và seed; muốn kết luận về topology phải cố định các biến này. (Tôi chỉ dựa vào tiêu đề và mô tả của lớp, chưa đọc bản đầy đủ.) |
 | BOUNDARY | Model / dataset / setup giới hạn kết luận đó | Kết luận của paper không áp dụng trực tiếp cho lab: lab dùng MockLLM, 14 claim public, bảng giá mô phỏng. |
 | HYPOTHESIS | Nếu đổi shape A→B (hoặc bật/tắt một thành phần), metric X sẽ đổi theo hướng nào, khoảng bao nhiêu | Đổi workflow → orchestrator (thêm investigator) không đổi pass rate vì quote do code tính, nhưng cost/success tăng khoảng gấp 2 (nhiều tool call và model call hơn). |
 | METHOD | Biến giữ cố định: model, tools, seed, corpus, giá, evaluator. Biến duy nhất được thay đổi: … | Cố định: MockLLM, cùng tool đọc, seed 11,22,33,44,55, 14 claim public, pricing.yaml, cùng grader, SQLite mới cho mỗi trial. Biến thay đổi duy nhất: topology (workflow, single, orchestrator, swarm). |
@@ -29,7 +29,7 @@ Phần này nối tiếp phần mini research ở buổi lý thuyết (slide 62�
 
 - Lệnh đã chạy (copy nguyên văn): `python -m lab8.benchmark --shapes workflow,single,orchestrator,swarm --cases data/public_claims.jsonl --seeds 11,22,33,44,55 --out reports/benchmark.json`
 - Run id / file report: src/reports/benchmark.json (ví dụ R-workflow-C-001-s11, R-swarm-C-002-s55)
-- Kết quả so với hypothesis (đúng / sai / không kết luận được), kèm số liệu: Đúng. Pass rate của workflow, single, orchestrator đều 1.000; cost/success lần lượt 28.79, 30.45, 57.58 (orchestrator gấp 2.0 lần workflow). Chỉ swarm lệch: pass 0.986, pass^5 0.929, fail duy nhất là C-002 seed 55 (`resolved != denied`), đúng lỗi dự kiến. Do seed, corpus, giá và tool được giữ cố định nên chênh lệch quy cho topology; chưa tách riêng ảnh hưởng của prompt vì MockLLM không dùng prompt thật.
+- Kết quả so với hypothesis (đúng / sai / không kết luận được), kèm số liệu: Đúng. Tôi thấy pass rate của workflow, single, orchestrator đều 1.000; cost/success lần lượt 28.79, 30.45, 57.58 (orchestrator gấp 2.0 lần workflow). Chỉ swarm lệch: pass 0.986, pass^5 0.929, fail duy nhất là C-002 seed 55 (`resolved != denied`), đúng lỗi dự kiến. Do seed, corpus, giá và tool được giữ cố định nên chênh lệch quy cho topology; tôi chưa tách riêng được ảnh hưởng của prompt vì MockLLM không dùng prompt thật.
 - Giới hạn: MockLLM không phải model sản xuất, latency là `unavailable`.
 
 Muốn đi xa hơn một ablation để lấy điểm cộng thì xem [docs/bonus_topics.md](../../docs/bonus_topics.md).
